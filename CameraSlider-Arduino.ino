@@ -19,7 +19,7 @@ AccelStepper stepper(AccelStepper::DRIVER, STEP, DIR);
 #define CLOCKPIN   6
 #define NUMPIXELS 1
 
-//Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BGR);
+Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BGR);
 
 // OTA DFU service
 BLEDfu bledfu;
@@ -79,12 +79,12 @@ void setup()
  
  // Setting DIR pin as inverted to invert direction
  stepper.setPinsInverted(true, false, false);
- stepper.setMinPulseWidth(3);
+ //stepper.setMinPulseWidth(3);
  stepper.setMaxSpeed(2200);
 
-  //strip.begin(); // Initialize pins for output
-  //strip.show();  // Turn all LEDs off ASAP
-  //strip.setPixelColor(0, 255, 0, 0); strip.show(); // RED
+  strip.begin(); // Initialize pins for output
+  strip.show();  // Turn all LEDs off ASAP
+  strip.setPixelColor(0, 255, 0, 0); strip.show(); // RED
 }
 
 void startAdv(void)
@@ -136,11 +136,11 @@ void loop()
          
          if(!homed) {
             char message[] = "Home first!";
-            //bleuart.write(message, strlen(message));
+            bleuart.write(message, strlen(message));
             return;
          }
          
-         //strip.setPixelColor(0, 0, 0, 255); strip.show(); // Blue
+         strip.setPixelColor(0, 0, 0, 255); strip.show(); // Blue
 
          startPacketPayload *payload = new startPacketPayload();
          if(parseStartPayload(payload)) {
@@ -185,7 +185,7 @@ void loop()
       Serial.println("Home Reached");
       runHome = false;
 
-      //strip.setPixelColor(0, 0, 255, 0); strip.show(); // GREEN
+      strip.setPixelColor(0, 0, 255, 0); strip.show(); // GREEN
       digitalWrite(ENABLE_PIN, HIGH); // HIGH to !Enable
 
       char message[] = "Home Reached";
@@ -193,8 +193,9 @@ void loop()
       Serial.print(message);
       Serial.print(" bytes ");
       Serial.println(strlen(message));
-      //bleuart.write(message, strlen(message));
+      bleuart.write(message, strlen(message));
       homed = true;
+      stepper.setCurrentPosition(0);
     }
   
     if(runHome) {
@@ -209,19 +210,18 @@ void loop()
       gooo = false;
       Serial.println("Arrived to the desination");
       char message[] = "Finished";
-      //bleuart.write(message, strlen(message));
+      bleuart.write(message, strlen(message));
       digitalWrite(ENABLE_PIN, HIGH); // Disabling motor driver
-      //strip.setPixelColor(0, 0, 255, 0); strip.show(); // GREEN
+      strip.setPixelColor(0, 0, 255, 0); strip.show(); // GREEN
       return;
     }
-    //stepper.runSpeedToPosition();
   }
 }
 
 // All stepper code and logic goes here
 void loop2() {
   if(gooo) {
-    stepper.runSpeedToPosition();
+    stepper.runSpeed();
   }
 }
 
