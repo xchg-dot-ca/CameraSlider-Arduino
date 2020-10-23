@@ -31,8 +31,10 @@ BLEUart bleuart;
 // Packet buffer
 extern uint8_t packetbuffer[];
 
+// States
 bool gooo = false;
 bool runHome = false;
+bool runStartPosition = false;
 
 // Indicates that slider was recently homed
 bool homed = false;
@@ -43,6 +45,7 @@ double stepsPerMm = DEFAULT_STEPS_PER_MM;
 double totalSteps = stepsPerMm * distancetoRun;
 // in steps per second
 float servoSpeed = totalSteps / timetoRun;
+int startPosition, stopPosition;
 
 void setup()
 {
@@ -145,21 +148,12 @@ void loop()
          startPacketPayload *payload = new startPacketPayload();
          if(parseStartPayload(payload)) {
           calculateStepper(payload);
-
-           digitalWrite(ENABLE_PIN, LOW); // LOW to Enable
-           Serial.print("Set to go. Servo speed: ");
-           Serial.print(servoSpeed);
-           Serial.print(" Total steps: ");
-           Serial.print(totalSteps);
-           Serial.print(" Time to run, sec: ");
-           Serial.print(timetoRun);
-           Serial.print(" Distance to run, mm: ");
-           Serial.println(distancetoRun);
-           
-           gooo = true;
-           homed = false;
-           stepper.moveTo(totalSteps);
-           stepper.setSpeed(servoSpeed);
+          
+          if(startPosition != 0) {
+            gotoStartPosition();
+           } else {
+            gotoTimeLapse();
+           }
          } else {
             Serial.print ("Failed to parse Start payload");
          }
@@ -171,6 +165,8 @@ void loop()
          Serial.print("Stopping.");
          gooo = false;
          runHome = false;
+         homed = false;
+         runStartPosition = false;
          stepper.stop();
     }
   }
@@ -223,13 +219,25 @@ void loop2() {
   if(gooo) {
     stepper.runSpeed();
   }
+
+  if(runStartPosition) {
+    if (stepper.distanceToGo() != 0) {
+      stepper.runSpeed();
+    } else {
+      runStartPosition = false;
+      stepper.setCurrentPosition(0);
+      gotoTimeLapse();
+    }
+  }
 }
 
 void calculateStepper(startPacketPayload *payload) {
   if(payload != NULL) {
     timetoRun = payload->timeToRun * 60; // in seconds
     // TODO: Calculate stop - start
-    distancetoRun = payload->stopPosition; // in mm
+    stopPosition = payload->stopPosition;
+    startPosition = payload->startPosition;
+    distancetoRun = stopPosition - startPosition; // in mm
     // take in account 16t pulley
     stepsPerMm = DEFAULT_STEPS_PER_MM; 
     totalSteps = stepsPerMm * distancetoRun;
@@ -247,4 +255,36 @@ void goHome() {
   runHome = true;
   gooo = false;
   stepper.setSpeed(-2000);
+}
+
+/**
+ * Prepares move to start position
+ */
+void gotoStartPosition() {
+  digitalWrite(ENABLE_PIN, LOW); // LOW to Enable
+  Serial.println("Going to start position");
+  runStartPosition = true;
+  gooo = false;
+  stepper.move(DEFAULT_STEPS_PER_MM * startPosition);
+  stepper.setSpeed(2000);
+}
+
+/**
+ * Prepares and starts main timelapse routine
+ */
+void gotoTimeLapse() {
+  digitalWrite(ENABLE_PIN, LOW); // LOW to Enable
+  Serial.print("Set to go. Servo speed: ");
+  Serial.print(servoSpeed);
+  Serial.print(" Total steps: ");
+  Serial.print(totalSteps);
+  Serial.print(" Time to run, sec: ");
+  Serial.print(timetoRun);
+  Serial.print(" Distance to run, mm: ");
+  Serial.println(distancetoRun);
+  
+  gooo = true;
+  homed = false;
+  stepper.moveTo(totalSteps);
+  stepper.setSpeed(servoSpeed);
 }
